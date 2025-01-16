@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Box,
   Typography,
@@ -12,20 +12,50 @@ import CloseIcon from "@mui/icons-material/Close";
 import { TaskContext } from "../tasks/context/task-context";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import RadioButtonCheckedIcon from "@mui/icons-material/RadioButtonChecked";
+import { updateTaskTimerInDB, getTaskTimerFromDB } from "../../database/db";
 
 const TaskTimerWatch = ({
   taskName,
   open,
   handleClose,
-  timerSeconds,
-  onPause,
-  onStart,
-  isRunning,
-  taskId
+  timerSeconds: initialTimerSeconds = 25 * 60,
+  taskId,
 }) => {
-  const { toggleTaskCompletion, tasks } = React.useContext(TaskContext);
+  const { toggleTaskCompletion, tasks } = useContext(TaskContext);
+  const [timerSeconds, setTimerSeconds] = useState(initialTimerSeconds);
+  const [isRunning, setIsRunning] = useState(false);
 
   const currentTask = tasks.find((task) => task.id === taskId);
+
+  // Load timer state from IndexedDB
+  useEffect(() => {
+    const fetchTimerState = async () => {
+      const savedState = await getTaskTimerFromDB(taskId);
+      if (savedState) {
+        setTimerSeconds(savedState.timerSeconds);
+        setIsRunning(savedState.isRunning);
+      }
+    };
+    if (taskId) fetchTimerState();
+  }, [taskId]);
+
+  // Save timer state to IndexedDB
+  useEffect(() => {
+    if (taskId) {
+      updateTaskTimerInDB(taskId, { timerSeconds, isRunning });
+    }
+  }, [taskId, timerSeconds, isRunning]);
+
+  // Timer logic
+  useEffect(() => {
+    let interval;
+    if (isRunning && timerSeconds > 0) {
+      interval = setInterval(() => {
+        setTimerSeconds((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning, timerSeconds]);
 
   const formatTime = (time) => {
     const minutes = Math.floor(time / 60);
@@ -34,6 +64,13 @@ const TaskTimerWatch = ({
   };
 
   const progress = (timerSeconds / (25 * 60)) * 100;
+
+  const handleStart = () => setIsRunning(true);
+  const handlePause = () => setIsRunning(false);
+  const handleCancel = () => {
+    setIsRunning(false);
+    setTimerSeconds(25 * 60);
+  };
 
   return (
     <Modal open={open} onClose={handleClose}>
@@ -56,7 +93,7 @@ const TaskTimerWatch = ({
       >
         <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton
+            {/* <IconButton
               onClick={() => toggleTaskCompletion(taskId)}
               sx={{ cursor: "pointer" }}
             >
@@ -65,7 +102,7 @@ const TaskTimerWatch = ({
               ) : (
                 <RadioButtonUncheckedIcon />
               )}
-            </IconButton>
+            </IconButton> */}
             <Typography
               variant="h6"
               sx={{
@@ -77,19 +114,6 @@ const TaskTimerWatch = ({
               {taskName}
             </Typography>
           </Box>
-
-          {/* <Typography
-            variant="h6"
-            sx={{
-              color: "#fff",
-              fontWeight: "bold",
-              flex: 1,
-              textAlign: "center",
-              gap: 4
-            }}
-          >
-            {taskName}
-          </Typography> */}
           <IconButton onClick={handleClose} sx={{ color: "#fff" }}>
             <CloseIcon />
           </IconButton>
@@ -107,19 +131,83 @@ const TaskTimerWatch = ({
           />
         </Box>
 
-        <Button
-          variant="contained"
-          onClick={isRunning ? onPause : onStart}
-          sx={{
-            backgroundColor: isRunning ? "#f44336" : "#4caf50",
-            color: "#fff",
-            textTransform: "none",
-            borderRadius: "20px",
-            px: 4,
-          }}
-        >
-          {isRunning ? "Pause" : "Start"}
-        </Button>
+        {!isRunning && timerSeconds === 25 * 60 && (
+          <Button
+            variant="contained"
+            onClick={handleStart}
+            sx={{
+              backgroundColor: "#4caf50",
+              color: "#fff",
+              textTransform: "none",
+              borderRadius: "20px",
+              px: 4,
+            }}
+          >
+            Start
+          </Button>
+        )}
+
+        {isRunning && (
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <Button
+              variant="contained"
+              onClick={handlePause}
+              sx={{
+                backgroundColor: "#f44336",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: "20px",
+                px: 4,
+              }}
+            >
+              Pause
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleCancel}
+              sx={{
+                backgroundColor: "#f44336",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: "20px",
+                px: 4,
+              }}
+            >
+              Cancel
+            </Button>
+          </Box>
+        )}
+
+        {!isRunning && timerSeconds < 25 * 60 && (
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <Button
+              variant="contained"
+              onClick={handleStart}
+              sx={{
+                backgroundColor: "#4caf50",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: "20px",
+                px: 4,
+              }}
+            >
+              Start
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleCancel}
+              sx={{
+                backgroundColor: "#f44336",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: "20px",
+                px: 4,
+              }}
+            >
+              Cancel
+            </Button>
+          </Box>
+        )}
       </Box>
     </Modal>
   );
