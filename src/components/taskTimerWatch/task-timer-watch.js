@@ -9,10 +9,9 @@ import {
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import CloseIcon from "@mui/icons-material/Close";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { TaskContext } from "../tasks/context/task-context";
-import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
-import RadioButtonCheckedIcon from "@mui/icons-material/RadioButtonChecked";
-import { updateTaskTimerInDB, getTaskTimerFromDB } from "../../database/db";
+import { getTaskTimerFromDB } from "../../database/db";
 
 const TaskTimerWatch = ({
   taskName,
@@ -21,13 +20,17 @@ const TaskTimerWatch = ({
   timerSeconds: initialTimerSeconds = 25 * 60,
   taskId,
 }) => {
-  const { toggleTaskCompletion, tasks } = useContext(TaskContext);
+  const { tasks, updateTaskTimer } = useContext(TaskContext);
   const [timerSeconds, setTimerSeconds] = useState(initialTimerSeconds);
   const [isRunning, setIsRunning] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0); // To track time elapsed in the current session
 
-  const currentTask = tasks.find((task) => task.id === taskId);
+  console.log("tasks:", tasks, "taskId:", taskId);
+  const currentTask = tasks?.find((task) => task.id === taskId);
+  console.log("currentTask:", currentTask);
 
-  // Load timer state from IndexedDB
+
+  // Load timer state and pomodoroQuantity from IndexedDB
   useEffect(() => {
     const fetchTimerState = async () => {
       const savedState = await getTaskTimerFromDB(taskId);
@@ -39,19 +42,22 @@ const TaskTimerWatch = ({
     if (taskId) fetchTimerState();
   }, [taskId]);
 
-  // Save timer state to IndexedDB
+  // Save timer state and update cumulative time in IndexedDB
   useEffect(() => {
-    if (taskId) {
-      updateTaskTimerInDB(taskId, { timerSeconds, isRunning });
+    return () => {
+      if (taskId && (timerSeconds !== initialTimerSeconds || isRunning)) {
+        updateTaskTimer(taskId, { timerSeconds, isRunning, elapsedTime });
+      }
     }
   }, [taskId, timerSeconds, isRunning]);
-
+  
   // Timer logic
   useEffect(() => {
     let interval;
     if (isRunning && timerSeconds > 0) {
       interval = setInterval(() => {
         setTimerSeconds((prev) => prev - 1);
+        setElapsedTime((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -66,10 +72,26 @@ const TaskTimerWatch = ({
   const progress = (timerSeconds / (25 * 60)) * 100;
 
   const handleStart = () => setIsRunning(true);
-  const handlePause = () => setIsRunning(false);
-  const handleCancel = () => {
+
+  const handlePause = async () => {
+    setIsRunning(false);
+
+    // Update pomodoroQuantity in the task
+    const newPomodoroQuantity = (currentTask?.pomodoroQuantity || 0) + elapsedTime;
+    setElapsedTime(0); // Reset elapsed time for the session
+    if (taskId) {
+      await updateTaskTimer(taskId, { pomodoroQuantity: newPomodoroQuantity });
+    }
+  };
+
+  const handleCancel = async () => {
     setIsRunning(false);
     setTimerSeconds(25 * 60);
+    const newPomodoroQuantity = (currentTask?.pomodoroQuantity || 0) + elapsedTime;
+    setElapsedTime(0);
+    if (taskId) {
+      await updateTaskTimer(taskId, { pomodoroQuantity: newPomodoroQuantity });
+    }
   };
 
   return (
@@ -92,28 +114,16 @@ const TaskTimerWatch = ({
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            {/* <IconButton
-              onClick={() => toggleTaskCompletion(taskId)}
-              sx={{ cursor: "pointer" }}
-            >
-              {currentTask?.completed ? (
-                <RadioButtonCheckedIcon color="success" />
-              ) : (
-                <RadioButtonUncheckedIcon />
-              )}
-            </IconButton> */}
-            <Typography
-              variant="h6"
-              sx={{
-                color: "#fff",
-                fontWeight: "bold",
-                textAlign: "center",
-              }}
-            >
-              {taskName}
-            </Typography>
-          </Box>
+          <Typography
+            variant="h6"
+            sx={{
+              color: "#fff",
+              fontWeight: "bold",
+              textAlign: "center",
+            }}
+          >
+            {taskName}
+          </Typography>
           <IconButton onClick={handleClose} sx={{ color: "#fff" }}>
             <CloseIcon />
           </IconButton>
@@ -129,6 +139,21 @@ const TaskTimerWatch = ({
               trailColor: "rgba(255, 255, 255, 0.2)",
             })}
           />
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            color: "#fff",
+            mt: 2,
+          }}
+        >
+          <AccessTimeIcon />
+          <Typography variant="body1">
+            Total Time: {formatTime(currentTask?.pomodoroQuantity || 0)}
+          </Typography>
         </Box>
 
         {!isRunning && timerSeconds === 25 * 60 && (
