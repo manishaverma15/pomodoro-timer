@@ -83,8 +83,18 @@ export const getTaskTimerFromDB = async (taskId) => {
 
 // Delete a timer state by task ID
 export const deleteTaskTimerFromDB = async (taskId) => {
-  const db = await initDB();
-  await db.delete(TIMER_STORE_NAME, taskId);
+  try {
+    const db = await initDB(); // Ensure `initDB` initializes your database properly
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+
+    await store.delete(taskId); // Delete the task by ID
+    await transaction.oncomplete; // Wait for the transaction to finish
+    console.log(`Task with ID ${taskId} deleted from timer store.`);
+
+  } catch (error) {
+    console.error(`Failed to delete timer for task with ID ${taskId}:`, error);
+  }
 };
 
 // Get all timers (optional)

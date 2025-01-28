@@ -23,35 +23,24 @@ const TaskTimerWatch = ({
   const { tasks, updateTaskTimer } = useContext(TaskContext);
   const [timerSeconds, setTimerSeconds] = useState(initialTimerSeconds);
   const [isRunning, setIsRunning] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0); // To track time elapsed in the current session
+  const [elapsedTime, setElapsedTime] = useState(0); // Track session time
 
-  console.log("tasks:", tasks, "taskId:", taskId);
   const currentTask = tasks?.find((task) => task.id === taskId);
-  console.log("currentTask:", currentTask);
 
-
-  // Load timer state and pomodoroQuantity from IndexedDB
+  // Load timer state and cumulative time from IndexedDB
   useEffect(() => {
     const fetchTimerState = async () => {
       const savedState = await getTaskTimerFromDB(taskId);
       if (savedState) {
-        setTimerSeconds(savedState.timerSeconds);
-        setIsRunning(savedState.isRunning);
+        setTimerSeconds(savedState.timerSeconds || initialTimerSeconds);
+        setElapsedTime(savedState.elapsedTime || 0);
+        setIsRunning(false);
       }
     };
     if (taskId) fetchTimerState();
-  }, [taskId]);
+  }, [taskId, initialTimerSeconds]);
 
-  // Save timer state and update cumulative time in IndexedDB
-  useEffect(() => {
-    return () => {
-      if (taskId && (timerSeconds !== initialTimerSeconds || isRunning)) {
-        updateTaskTimer(taskId, { timerSeconds, isRunning, elapsedTime });
-      }
-    }
-  }, [taskId, timerSeconds, isRunning]);
-  
-  // Timer logic
+  // Timer countdown logic
   useEffect(() => {
     let interval;
     if (isRunning && timerSeconds > 0) {
@@ -63,6 +52,7 @@ const TaskTimerWatch = ({
     return () => clearInterval(interval);
   }, [isRunning, timerSeconds]);
 
+  // Format time for display
   const formatTime = (time) => {
     const minutes = Math.floor(time / 60);
     const seconds = time % 60;
@@ -71,27 +61,39 @@ const TaskTimerWatch = ({
 
   const progress = (timerSeconds / (25 * 60)) * 100;
 
-  const handleStart = () => setIsRunning(true);
+  // Start the timer
+  const handleStart = () => {
+    setIsRunning(true);
 
-  const handlePause = async () => {
-    setIsRunning(false);
-
-    // Update pomodoroQuantity in the task
-    const newPomodoroQuantity = (currentTask?.pomodoroQuantity || 0) + elapsedTime;
-    setElapsedTime(0); // Reset elapsed time for the session
-    if (taskId) {
-      await updateTaskTimer(taskId, { pomodoroQuantity: newPomodoroQuantity });
+    // Reset the timer to the initial 25 minutes if it was stopped previously
+    if (timerSeconds === 0 || !isRunning) {
+      setTimerSeconds(25 * 60);
+      setElapsedTime(0);
     }
   };
 
-  const handleCancel = async () => {
+  // Pause the timer
+  const handlePause = () => {
     setIsRunning(false);
-    setTimerSeconds(25 * 60);
+  };
+
+  // Stop the timer
+  const handleStop = () => {
+    setIsRunning(false);
+
+    // Save the elapsed time to the total pomodoroQuantity for the task
     const newPomodoroQuantity = (currentTask?.pomodoroQuantity || 0) + elapsedTime;
+
+    // Update state and database via context function
+    updateTaskTimer(taskId, {
+      pomodoroQuantity: newPomodoroQuantity,
+      timerSeconds: 25 * 60, // Reset timer to 25 minutes
+    });
+
+    console.log(`Total time used by task "${taskName}": ${formatTime(newPomodoroQuantity)}`);
+    setTimerSeconds(25 * 60);
     setElapsedTime(0);
-    if (taskId) {
-      await updateTaskTimer(taskId, { pomodoroQuantity: newPomodoroQuantity });
-    }
+    handleClose();
   };
 
   return (
@@ -189,7 +191,7 @@ const TaskTimerWatch = ({
             </Button>
             <Button
               variant="contained"
-              onClick={handleCancel}
+              onClick={handleStop}
               sx={{
                 backgroundColor: "#f44336",
                 color: "#fff",
@@ -198,7 +200,7 @@ const TaskTimerWatch = ({
                 px: 4,
               }}
             >
-              Cancel
+              Stop
             </Button>
           </Box>
         )}
@@ -216,11 +218,11 @@ const TaskTimerWatch = ({
                 px: 4,
               }}
             >
-              Start
+              Continue
             </Button>
             <Button
               variant="contained"
-              onClick={handleCancel}
+              onClick={handleStop}
               sx={{
                 backgroundColor: "#f44336",
                 color: "#fff",
@@ -229,10 +231,74 @@ const TaskTimerWatch = ({
                 px: 4,
               }}
             >
-              Cancel
+              Stop
             </Button>
           </Box>
         )}
+
+        {/* 
+        {!isRunning && !showContinueCancel && (
+          <Button
+            variant="contained"
+            onClick={handleStart}
+            sx={{
+              backgroundColor: "#4caf50",
+              color: "#fff",
+              textTransform: "none",
+              borderRadius: "20px",
+              px: 4,
+            }}
+          >
+            Start
+          </Button>
+        )}
+
+        {isRunning && (
+          <Button
+            variant="contained"
+            onClick={handlePause}
+            sx={{
+              backgroundColor: "#f44336",
+              color: "#fff",
+              textTransform: "none",
+              borderRadius: "20px",
+              px: 4,
+            }}
+          >
+            Pause
+          </Button>
+        )}
+
+        {showContinueCancel && (
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <Button
+              variant="contained"
+              onClick={handleStart}
+              sx={{
+                backgroundColor: "#4caf50",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: "20px",
+                px: 4,
+              }}
+            >
+              Continue
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleStop}
+              sx={{
+                backgroundColor: "#f44336",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: "20px",
+                px: 4,
+              }}
+            >
+              Stop
+            </Button>
+          </Box>
+        )} */}
       </Box>
     </Modal>
   );

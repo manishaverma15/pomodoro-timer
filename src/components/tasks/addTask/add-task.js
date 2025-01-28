@@ -20,6 +20,7 @@ import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
 import { format } from "date-fns";
 import TaskTimerWatch from "../../taskTimerWatch/task-timer-watch";
 import { TaskContext } from "../context/task-context";
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const AddTask = () => {
   const {
@@ -30,6 +31,7 @@ const AddTask = () => {
     toBeCompleted,
     elapsedTime,
     completedTask,
+    deleteTask
   } = React.useContext(TaskContext);
 
   const [taskInput, setTaskInput] = React.useState("");
@@ -52,6 +54,10 @@ const AddTask = () => {
       addTask(taskInput);
       setTaskInput("");
     }
+  };
+
+  const handleDeleteTask = (id) => {
+    deleteTask(id)
   };
 
   const toggleShowCompleted = () => {
@@ -164,15 +170,18 @@ const AddTask = () => {
                       </ListItemIcon>
                       <ListItemText primary={task.name} />
                     </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "text.secondary",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {format(new Date(task.date), "d MMM")}
-                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 3 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "text.secondary",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {format(new Date(task.date), "d MMM")}
+                      </Typography>
+                      <DeleteIcon onClick={() => handleDeleteTask(task.id)} />
+                    </Box>
                   </ListItem>
                 </CardContent>
               </Card>
@@ -238,15 +247,18 @@ const AddTask = () => {
                         }
                       />
                     </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "text.secondary",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {format(new Date(task.date), "d MMM")}
-                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 3 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "text.secondary",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {format(new Date(task.date), "d MMM")}
+                      </Typography>
+                      <DeleteIcon onClick={() => handleDeleteTask(task.id)} />
+                    </Box>
                   </ListItem>
                 </CardContent>
               </Card>
