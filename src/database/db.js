@@ -43,9 +43,33 @@ export const getAllTasksFromDB = async () => {
 };
 
 // Update a task
+// export const updateTaskInDB = async (task) => {
+//   const db = await initDB();
+//   await db.put(STORE_NAME, task);
+// };
+
 export const updateTaskInDB = async (task) => {
+  if (!task || !task.id) {
+    console.error("Invalid task data:", task);
+    return;
+  }
+
   const db = await initDB();
-  await db.put(STORE_NAME, task);
+  const existingTask = await db.get(STORE_NAME, task.id);
+  
+  if (!existingTask) {
+    console.error("Task not found in DB:", task.id);
+    return;
+  }
+
+  // Merge and save the latest state
+  const updatedTask = {
+    ...existingTask,
+    ...task, // Keep previous data while updating time
+  };
+
+  await db.put(STORE_NAME, updatedTask);
+  console.log("Task updated in DB:", updatedTask);
 };
 
 // Add or update a timer state

@@ -25,7 +25,13 @@ export const TaskProvider = ({ children }) => {
   }, []);
 
   const addTask = async (name) => {
-    const task = { id: uuidv4(), name, completed: false, date: new Date(), pomodoroQuantity: 0 };
+    const task = {
+      id: uuidv4(),
+      name,
+      completed: false,
+      date: new Date(),
+      pomodoroQuantity: 0
+    };
     await addTaskToDB(task);
     setTasks((prev) => [task, ...prev]);
   };
